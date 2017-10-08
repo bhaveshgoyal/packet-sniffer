@@ -7,7 +7,11 @@
 
 /* Ethernet addresses are 6 bytes */
 #define ETHER_ADDR_LEN	6
+#define IP_ADDR_LEN 4
 #define ETHER_SIZE 14
+
+#define ETHERTYPE_ARP		0x0806
+#define ETHERTYPE_IP		0x0800
 
 /* Ethernet header */
 struct sniff_ethernet {
@@ -38,6 +42,24 @@ struct sniff_ip {
 /* TCP header */
 typedef u_int tcp_seq;
 
+struct sniff_arp {
+	u_int16_t arp_htype;				/* hardware type: ethernet, frame-relay, ... */
+	u_int16_t arp_ptype;				/* protocol type: ip, ipx, ... */
+	u_char arp_hlen;				/* harware address length: eth-0x06, ... */
+	u_char arp_plen;				/* protocol address length: ip-0x04, ... */
+	u_int16_t arp_oper;				/* operation: request:0x01, reply:0x02, ... */
+	u_char arp_sha[ETHER_ADDR_LEN];			/* source hardware address */
+	u_char arp_sip[IP_ADDR_LEN];			/* source protocol address */
+	u_char arp_dha[ETHER_ADDR_LEN];			/* destination hardware address */
+	u_char arp_dip[IP_ADDR_LEN];			/* destination protocol address */
+};
+
+struct sniff_udp {
+	u_short udp_sport;
+	u_short udp_dport;
+	short len;
+	u_short udp_sum;
+};
 struct sniff_tcp {
         u_short th_sport;               /* source port */
         u_short th_dport;               /* destination port */
