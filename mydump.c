@@ -2,11 +2,15 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pcap.h>
 #include <ctype.h>
 #include <time.h>
 #include <math.h>
-#include<netinet/udp.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netinet/ip.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
+#include <netinet/ip_icmp.h>
 #include "lib/defs.h"
 #include "lib/format.c"
 #define EXP_LEN 100
@@ -72,6 +76,26 @@ store_payload(const u_char *payload, int len)
 return;
 }
 
+void print_ether_type(u_short ether_type, u_char *ether_dhost, u_char *ether_shost){
+
+		for(int i = 0; i < 6; i++){
+				printf("%02x", ether_shost[i]);
+				if (i <= 4)
+						printf(":");
+				else
+						printf(" > ");
+		}
+		for(int i = 0; i < 6; i++){
+				printf("%02x", ether_dhost[i]);
+				if (i <= 4)
+						printf(":");
+				else{
+						printf(" type 0x%03hx", ntohs(ether_type));
+				}
+		}
+
+		return;
+}
 void packet_handler(u_char *args, const struct pcap_pkthdr *header, const u_char *packet){
 		//	static int packet_count = 1;
 
@@ -79,9 +103,10 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *header, const u_char
 		const struct sniff_ip *ip;              /* The IP header */
 		const struct sniff_tcp *tcp;            /* The TCP header */
 		const struct sniff_udp *udp;
+		const struct icmp *icmphd;
 		const u_char *payload;                    /* Packet payload */
-		char * src_ip, *dst_ip, *type;
-		int ip_size, tcp_size, pload_size;
+		char src_ip[16], dst_ip[16], *type;
+		int ip_size, tcp_size, udp_size, pload_size;
 		int src_port, dst_port;
 
 		time_t timer;
@@ -102,11 +127,8 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *header, const u_char
 		uint16_t p_type = ntohs(ethernet->ether_type);
 //		printf(" packet: %x", p_type);
 		if (p_type == ETHERTYPE_ARP){
-
 				const struct sniff_arp *arp;              /* The IP header */
 				arp = (struct sniff_arp*)(packet + ETHER_SIZE);
-				dst_ip = (char *)malloc(16);
-				src_ip = (char *)malloc(16);
 				snprintf (dst_ip, 16, "%d.%d.%d.%d",
 								arp->arp_dip[0], arp->arp_dip[1], arp->arp_dip[2], arp->arp_dip[3]);
 				snprintf (src_ip, 16, "%d.%d.%d.%d",
@@ -118,75 +140,82 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *header, const u_char
 		else if (p_type == ETHERTYPE_IP){
 				ip = (struct sniff_ip*)(packet+ETHER_SIZE);
 				ip_size = IP_HL(ip)*4;
-				if (ip_size < 20){
-						return;
-				}
-
-				tcp = (struct sniff_tcp*)(packet + ETHER_SIZE + ip_size);
-				tcp_size = TH_OFF(tcp)*4;
-				if (tcp_size < 20){
-						return;
-				}
-
-				udp = (struct sniff_udp*)(packet + ETHER_SIZE + ip_size);
-				
-				payload = (u_char *)(packet + ETHER_SIZE + ip_size + tcp_size);
-				pload_size = ntohs(ip->ip_len) - (ip_size + tcp_size);
-				
-				if (sflag == 1 && sload){
-						if (pload_size == 0)
-								return;
-
-						else{
-								store_payload(payload, pload_size);
-								if (strstr((const char *)pload_buff, sload) == NULL){
-										idx = 0;
-										memset(&pload_buff, 0, sizeof(pload_buff));
-										return;
-								}
-						}
-				}
-
-
-				printf("%s.%06d ", buffer, *micro);
-				
-				for(int i = 0; i < 6; i++){
-						printf("%02x", ethernet->ether_shost[i]);
-						if (i <= 4)
-								printf(":");
-						else
-								printf(" > ");
-				}
-				for(int i = 0; i < 6; i++){
-						printf("%02x", ethernet->ether_dhost[i]);
-						if (i <= 4)
-								printf(":");
-						else{
-								printf(" type 0x%03hx", ntohs(ethernet->ether_type));
-						}
-				}
+				if (ip_size < 20)
+				return;
 
 				src_ip = inet_ntoa(ip->ip_src);
 				dst_ip = inet_ntoa(ip->ip_dst);
-
 				switch(ip->ip_p){
 						case IPPROTO_TCP:
 								type = "TCP";
+								tcp = (struct sniff_tcp*)(packet + ETHER_SIZE + ip_size);
+								tcp_size = TH_OFF(tcp)*4;
+								if (tcp_size < 20){
+										return;
+								}
 								src_port = ntohs(tcp->th_sport);
 								dst_port = ntohs(tcp->th_dport);
-								printf(" len %d %s:%d > %s:%d %s\n", *packet_size - ETHER_SIZE, src_ip, src_port, dst_ip, dst_port, type);
-								if (pload_size > 0) {
-										print_payload(payload, pload_size);		
+								payload = (u_char *)(packet + ETHER_SIZE + ip_size + tcp_size);
+								pload_size = ntohs(ip->ip_len) - (ip_size + tcp_size);
+								if (sflag == 1 && sload){
+										if (pload_size == 0)
+												break;
+										else{
+												store_payload(payload, pload_size);
+												if (strstr((const char *)pload_buff, sload) == NULL){
+														idx = 0;
+														memset(&pload_buff, 0, sizeof(pload_buff));
+														break;
+												}
+										}
 								}
+								printf("%s.%06d ", buffer, *micro);
+								print_ether_type(ethernet->ether_type, (u_char *)ethernet->ether_dhost, (u_char *)ethernet->ether_shost);
+								printf(" len %d %s:%d > %s:%d %s\n", *packet_size - ETHER_SIZE, src_ip, src_port, dst_ip, dst_port, type);
+								print_payload(payload, pload_size);
 								break;
 						case IPPROTO_UDP:
+								udp = (struct sniff_udp*)(packet + ETHER_SIZE + ip_size);
+								udp_size = (ntohs(udp->len));
+								if (udp_size < 8)
+										return;
 								type = "UDP";
 								src_port = ntohs(udp->udp_sport);
 								dst_port = ntohs(udp->udp_dport);
-								printf(" len %d %s:%d > %s:%d %s", *packet_size - ETHER_SIZE, src_ip, src_port, dst_ip, dst_port, type);
+								payload = (u_char *)(packet + ETHER_SIZE + ip_size + udp_size);
+								pload_size = ntohs(ip->ip_len) - (ip_size + udp_size);
+								if (sflag == 1 && sload){
+										if (pload_size == 0)
+												return;
+										else{
+												store_payload(payload, pload_size);
+												if (strstr((const char *)pload_buff, sload) == NULL){
+														idx = 0;
+														memset(&pload_buff, 0, sizeof(pload_buff));
+														return;
+												}
+										}
+								}
+								printf("%s.%06d ", buffer, *micro);
+								print_ether_type(ethernet->ether_type, (u_char *)ethernet->ether_dhost, (u_char *)ethernet->ether_shost);
+								printf("%d len %d %s:%d > %s:%d %s", ntohs(udp_size), *packet_size - ETHER_SIZE, src_ip, src_port, dst_ip, dst_port, type);
+								print_payload(payload, pload_size);
 								break;
 						case IPPROTO_ICMP:
 								type = "ICMP";
+								printf("%s.%06d ", buffer, *micro);
+								icmphd = (struct icmp*)(packet + ETHER_SIZE + ip_size);
+								unsigned short id, seq;
+								memcpy(&id, (u_char*)icmphd+4, 2);
+								memcpy(&seq, (u_char*)icmphd+6, 2);
+								char *type;
+								if (icmphd->icmp_type == 8)
+									type = "request";
+								else if (icmphd->icmp_type == 0)
+									type = "reply";
+								if (icmphd->icmp_type == 3)
+									type = "unreachable";
+								printf("IP %s > %s: ICMP echo %s ,id %d, seq %d", src_ip, dst_ip, type, ntohs(id), ntohs(seq));
 								break;
 						case IPPROTO_IP:
 								type = "IP";
