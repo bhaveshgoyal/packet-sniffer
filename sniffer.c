@@ -168,7 +168,7 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *header, const u_char
 												if (strstr((const char *)pload_buff, sload) == NULL){
 														idx = 0;
 														memset(&pload_buff, 0, sizeof(pload_buff));
-														break;
+														return;
 												}
 										}
 								}
@@ -176,6 +176,7 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *header, const u_char
 								print_ether_type(ethernet->ether_type, (u_char *)ethernet->ether_dhost, (u_char *)ethernet->ether_shost);
 								printf(" len %d %s:%d > %s:%d %s\n", *packet_size - ETHER_SIZE, src_ip, src_port, dst_ip, dst_port, type);
 								print_payload(payload, pload_size);
+								printf("\n");
 								break;
 						case IPPROTO_UDP:
 								udp = (struct sniff_udp*)(packet + ETHER_SIZE + ip_size);
@@ -203,6 +204,7 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *header, const u_char
 								print_ether_type(ethernet->ether_type, (u_char *)ethernet->ether_dhost, (u_char *)ethernet->ether_shost);
 								printf(" len %d %s:%d > %s:%d %s\n", udp_size, src_ip, src_port, dst_ip, dst_port, type);
 								print_payload(payload, pload_size);
+								printf("\n");
 								break;
 						case IPPROTO_ICMP:
 								type = "ICMP";
@@ -234,6 +236,7 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *header, const u_char
 										type = "unreachable";
 								printf("IP %s > %s: ICMP echo %s ,id %d, seq %d\n", src_ip, dst_ip, type, ntohs(id), ntohs(seq));
 								print_payload(payload, pload_size);
+								printf("\n");
 								break;
 						case IPPROTO_IGMP:
 								type = "IGMP";
@@ -249,7 +252,7 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *header, const u_char
 								break;
 				}
 
-				printf("\n");
+//				printf("\n");
 		}
 		idx = 0;
 		memset(&pload_buff, 0, sizeof(pload_buff));
