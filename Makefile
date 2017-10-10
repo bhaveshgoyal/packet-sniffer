@@ -1,2 +1,2 @@
 all:
-	gcc -lpcap mydump.c
+	gcc -lpcap -I./lib sniffer.c -o sniffer
