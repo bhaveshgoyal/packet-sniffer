@@ -21,10 +21,9 @@ For each packet, the program prints a record containing the timestamp, source an
 address and port, protocol type and the raw content of the packet payload.
 
 Supported Protocols:
-
-Layer 3: IP, ARP
-
-Layer 4: TCP, UDP, ICMP, IGMP
+Layer 2: ARP
+Layer 3: IP, ICMP, IGMP
+Layer 4: TCP, UDP
 
 ----------------------------------
 **A Brief Note on implementation:**
