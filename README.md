@@ -22,7 +22,9 @@ address and port, protocol type and the raw content of the packet payload.
 
 Supported Protocols:
 Layer 2: ARP
+
 Layer 3: IP, ICMP, IGMP
+
 Layer 4: TCP, UDP
 
 ----------------------------------
